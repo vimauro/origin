@@ -11,6 +11,7 @@ import (
 	o "github.com/onsi/gomega"
 	v1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/origin/test/extended/edge_topologies/utils"
+	"github.com/openshift/origin/test/extended/edge_topologies/utils/apis"
 	"github.com/openshift/origin/test/extended/edge_topologies/utils/services"
 	"github.com/openshift/origin/test/extended/etcd/helpers"
 	exutil "github.com/openshift/origin/test/extended/util"
@@ -330,6 +331,11 @@ var _ = g.Describe("[sig-etcd][apigroup:config.openshift.io][OCPFeatureGate:Dual
 				services.TaintScriptLogTag, services.TaintSuccessLog, baseTimestamp)
 		}, journalCheckTimeout, utils.FiveSecondPollInterval).Should(o.BeTrue(),
 			"taint-fenced-node should log successful taint and annotation application")
+
+		g.By("Waiting for PacemakerHealthCheckDegraded=True after fencing")
+		o.Expect(apis.WaitForPacemakerHealthCheckDegraded(oc, "", 2*time.Minute)).
+			ShouldNot(o.HaveOccurred(), "PacemakerHealthCheckDegraded should become True after fencing")
+
 		// --- Recovery Wait ---
 
 		if !learnerStarted {
@@ -382,5 +388,9 @@ var _ = g.Describe("[sig-etcd][apigroup:config.openshift.io][OCPFeatureGate:Dual
 				services.UntaintScriptLogTag, services.UntaintSuccessLog, baseTimestamp)
 		}, taintRemovedTimeout, utils.FiveSecondPollInterval).Should(o.BeTrue(),
 			"untaint-fenced-node should log successful untaint on at least one node")
+
+		g.By("Waiting for PacemakerHealthCheckDegraded to clear after network disruption recovery")
+		o.Expect(apis.WaitForPacemakerHealthCheckCleared(oc, taintRemovedTimeout)).
+			ShouldNot(o.HaveOccurred(), "PacemakerHealthCheckDegraded should clear after network disruption recovery")
 	})
 })
